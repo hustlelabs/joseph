@@ -1,6 +1,9 @@
 import idaapi
 import idautils
 
+GLB_PluginName = "Insn Colorizer"
+GLB_HotKey = ""
+
 
 JUMP_FLAGS = [idaapi.fl_JF, idaapi.fl_JN]
 FLOW_FLAGS = [idaapi.fl_JF, idaapi.fl_JN,  idaapi.fl_F]
@@ -82,7 +85,7 @@ idaapi.SCOLOR_COLLAPSED - Blue
 idaapi.SCOLOR_ADDR      - 
 """
 
-AM_IN_HOOK = False
+
 
 def color_inject(a_str, old_color, new_color):
     SCOLOR_OFF = idaapi.SCOLOR_OFF
@@ -92,9 +95,19 @@ def color_inject(a_str, old_color, new_color):
     ret_str += SCOLOR_ON + old_color
     return ret_str
 
-class IdaColorizer(idaapi.IDP_Hooks):
+class IdpHooker(idaapi.IDP_Hooks):
+    def __init__(self, *args):
+        self.am_in_hook = False
+        self.active = True
+        super(IdpHooker, self).__init__()
+
+    def toggle_active(self):
+        self.active = not self.active
   
     def get_reg_name(self, *args):
+        """
+        This function is here to fix a bug in the idapython overloading
+        """
         ret = _idaapi.IDP_Hooks_get_reg_name(self, *args)
         if ret == None:
           return 0
@@ -106,18 +119,37 @@ class IdaColorizer(idaapi.IDP_Hooks):
         Return 0 - No customization
         Return 2 - Did customization
         """
-        global AM_IN_HOOK
-        if AM_IN_HOOK:
+        if self.am_in_hook or not self.active:
           return _idaapi.IDP_Hooks_custom_mnem(self, *args)
         for checker, color in INSN_RULES:
             if checker(idaapi.cmd.ea):
-                AM_IN_HOOK = True
+                self.am_in_hook = True
                 mnem = idaapi.ua_mnem(idaapi.cmd.ea)
-                AM_IN_HOOK = False
+                self.am_in_hook = False
                 mnem = mnem + " " * (7 - len(mnem))
                 return color_inject(mnem, idaapi.SCOLOR_INSN, color)
         return _idaapi.IDP_Hooks_custom_mnem(self, *args)
 
-blah = IdaColorizer()
-blah.hook()
-idaapi.request_refresh(idaapi.IWID_DISASMS)
+class InsnColorizer(idaapi.plugin_t):
+    flags = 0
+    comment = ""
+    help = ""
+    wanted_name = GLB_PluginName
+    wanted_hotkey = GLB_HotKey
+
+    def init(self):
+        self.hook = IdpHooker()
+        self.hook.hook()
+        print "%s initialized" % (GLB_PluginName)
+        return idaapi.PLUGIN_KEEP
+
+    def run(self, arg):
+        self.hook.toggle_active()
+        idaapi.request_refresh(idaapi.IWID_DISASMS)
+            
+    def term(self):
+        self.hook.unhook()
+
+
+def PLUGIN_ENTRY():
+    return InsnColorizer()
