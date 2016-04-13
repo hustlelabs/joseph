@@ -104,9 +104,11 @@ class IdpHooker(idaapi.IDP_Hooks):
 
     def toggle_hider(self):
         self.hide = not self.hide
+        idaapi.request_refresh(idaapi.IWID_DISASMS)
 
     def toggle_active(self):
         self.active = not self.active
+        idaapi.request_refresh(idaapi.IWID_DISASMS)
   
     def get_reg_name(self, *args):
         """
@@ -145,6 +147,12 @@ class IdpHooker(idaapi.IDP_Hooks):
                 return color_inject(mnem, idaapi.SCOLOR_INSN, color)
         return _idaapi.IDP_Hooks_custom_mnem(self, *args)
 
+def JumpToTop():
+    curr_ea = idaapi.get_screen_ea()
+    curr_func = idaapi.get_func(curr_ea)
+    begin = curr_func.startEA
+    idaapi.jumpto(begin)
+
 class InsnColorizer(idaapi.plugin_t):
     flags = 0
     comment = ""
@@ -157,6 +165,7 @@ class InsnColorizer(idaapi.plugin_t):
         self.hook.hook()
         print "%s initialized" % (GLB_PluginName)
         idaapi.add_hotkey("i", self.hook.toggle_hider)
+        idaapi.add_hotkey("j", JumpToTop)
         return idaapi.PLUGIN_KEEP
 
     def run(self, arg):
