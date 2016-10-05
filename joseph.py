@@ -135,8 +135,18 @@ class IdpHooker(idaapi.IDP_Hooks):
 def JumpToTop():
     curr_ea = idaapi.get_screen_ea()
     curr_func = idaapi.get_func(curr_ea)
+    if not curr_func:
+        return
     begin = curr_func.startEA
     idaapi.jumpto(begin)
+    
+def JumpToBottom():
+    curr_ea = idaapi.get_screen_ea()
+    curr_func = idaapi.get_func(curr_ea)
+    if not curr_func:
+        return
+    begin = idaapi.prevaddr(curr_func.endEA)
+    idaapi.jumpto(begin)    
     
 class InsnColorizer(idaapi.plugin_t):
     flags = 0
@@ -146,7 +156,8 @@ class InsnColorizer(idaapi.plugin_t):
     wanted_hotkey = GLB_HotKey
 
     def init(self):
-        idaapi.add_hotkey("j", JumpToTop)
+        idaapi.add_hotkey("j", JumpToBottom)
+        idaapi.add_hotkey("i", JumpToTop)
         self.hook = IdpHooker()
         self.hook.hook()
         print "%s initialized" % (GLB_PluginName)
