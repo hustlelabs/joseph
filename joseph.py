@@ -4,6 +4,12 @@ import idautils
 GLB_PluginName = "Insn Colorizer"
 GLB_HotKey = ""
 
+try:
+    hook_place = _idaapi
+except:
+    import _ida_idp
+    hook_place = _ida_idp
+
 
 JUMP_FLAGS = [idaapi.fl_JF, idaapi.fl_JN]
 FLOW_FLAGS = [idaapi.fl_JF, idaapi.fl_JN,  idaapi.fl_F]
@@ -33,18 +39,14 @@ INSN_RULES = [
 idaapi.SCOLOR_REGCMT  - Blue
 idaapi.SCOLOR_INSN    - Dark blue
 idaapi.SCOLOR_DREF     - Sky blue
-
 idaapi.SCOLOR_RPTCMT  - Grey
-
 idaapi.SCOLOR_CHAR    - Green
 idaapi.SCOLOR_DREFTAIL - Army green
 idaapi.SCOLOR_STRING  - Light Green
-
 idaapi.SCOLOR_VOIDOP   - Orange
 idaapi.SCOLOR_CREFTAIL - Red
 idaapi.SCOLOR_ERROR    - Black on red background
 idaapi.SCOLOR_MACRO   - Purple
-
 idaapi.SCOLOR_DEFAULT - Blue
 idaapi.SCOLOR_AUTOCMT - Grey
 idaapi.SCOLOR_INSN    - Dark blue
@@ -120,7 +122,7 @@ class IdpHooker(idaapi.IDP_Hooks):
         Return 2 - Did customization
         """
         if self.am_in_hook or not self.active:
-          return _idaapi.IDP_Hooks_custom_mnem(self, *args)
+          return hook_place.IDP_Hooks_custom_mnem(self, *args)
         for checker, color in INSN_RULES:
             if checker(idaapi.cmd.ea):
                 self.am_in_hook = True
@@ -128,8 +130,14 @@ class IdpHooker(idaapi.IDP_Hooks):
                 self.am_in_hook = False
                 mnem = mnem + " " * (7 - len(mnem))
                 return color_inject(mnem, idaapi.SCOLOR_INSN, color)
-        return _idaapi.IDP_Hooks_custom_mnem(self, *args)
+        return hook_place.IDP_Hooks_custom_mnem(self, *args)
 
+def JumpToTop():
+    curr_ea = idaapi.get_screen_ea()
+    curr_func = idaapi.get_func(curr_ea)
+    begin = curr_func.startEA
+    idaapi.jumpto(begin)
+    
 class InsnColorizer(idaapi.plugin_t):
     flags = 0
     comment = ""
@@ -138,6 +146,7 @@ class InsnColorizer(idaapi.plugin_t):
     wanted_hotkey = GLB_HotKey
 
     def init(self):
+        idaapi.add_hotkey("j", JumpToTop)
         self.hook = IdpHooker()
         self.hook.hook()
         print "%s initialized" % (GLB_PluginName)
